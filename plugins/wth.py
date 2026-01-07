@@ -259,13 +259,11 @@ async def get_weather_data(city):
             },
             "air_quality": {
                 "level": aqi_level,
-                "measurements": {
-                    "pm2_5": round(aqi["pm2_5"][0], 2),
-                    "pm10": round(aqi["pm10"][0], 2),
-                    "carbon_monoxide": round(aqi["carbon_monoxide"][0], 2),
-                    "nitrogen_dioxide": round(aqi["nitrogen_dioxide"][0], 2),
-                    "ozone": round(aqi["ozone"][0], 2)
-                }
+                "fine_particles": round(aqi["pm2_5"][0], 2),
+                "coarse_particles": round(aqi["pm10"][0], 2),
+                "carbon_monoxide": round(aqi["carbon_monoxide"][0], 2),
+                "nitrogen_dioxide": round(aqi["nitrogen_dioxide"][0], 2),
+                "ozone": round(aqi["ozone"][0], 2)
             },
             "weather_maps": {
                 "temperature": f"https://openweathermap.org/weathermap?basemap=map&cities=true&layer=temperature&lat={lat}&lon={lon}&zoom=8",
