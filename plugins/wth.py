@@ -71,11 +71,12 @@ def create_weather_image(weather_data, output_path):
     img = Image.new("RGB", (img_width, img_height), color=background_color)
     draw = ImageDraw.Draw(img)
     
-    font_url_bold = "https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Bold.ttf"
-    font_url_regular = "https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Regular.ttf"
+    font_url_bold_large = "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans-Bold.ttf"
+    font_url_bold = "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans-Bold.ttf"
+    font_url_regular = "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf"
     
     try:
-        font_bold_large = download_font(font_url_bold, 120)
+        font_bold_large = download_font(font_url_bold_large, 120)
         font_bold = download_font(font_url_bold, 40)
         font_regular = download_font(font_url_regular, 38)
         font_small = download_font(font_url_regular, 36)
