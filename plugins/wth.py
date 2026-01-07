@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 import aiohttp
 import asyncio
@@ -51,10 +51,10 @@ def get_country_name(country_code):
         return country_code
 
 def create_weather_image(weather_data, output_path):
-    current = weather_data["current_weather"]
+    current = weather_data["current"]
     
     try:
-        timezone = get_timezone_from_coordinates(weather_data["coordinates"]["latitude"], weather_data["coordinates"]["longitude"])
+        timezone = get_timezone_from_coordinates(weather_data["lat"], weather_data["lon"])
         local_time = datetime.now(timezone)
         time_text = local_time.strftime("%I:%M %p")
     except Exception as e:
@@ -86,10 +86,10 @@ def create_weather_image(weather_data, output_path):
     
     main_title = "Current Weather"
     temp_text = f"{current['temperature']}°C"
-    condition_text = current["condition"]
+    condition_text = current["weather"]
     realfeel_text = f"RealFeel® {current['feels_like']}°C"
-    country_name = get_country_name(weather_data['location']['country_code'])
-    location_text = f"{weather_data['location']['city']}, {country_name}"
+    country_name = get_country_name(weather_data['country_code'])
+    location_text = f"{weather_data['city']}, {country_name}"
     
     draw.text((1140, 30), time_text, font=font_regular, fill=light_gray, anchor="ra")
     draw.text((40, 40), main_title, font=font_bold, fill=white)
@@ -201,9 +201,9 @@ async def get_weather_data(city):
             hourly_forecast.append({
                 "time": time_format,
                 "temperature": round(hourly["temperature_2m"][i], 1),
-                "condition": weather_code.get(hourly["weathercode"][i], "Unknown"),
+                "weather": weather_code.get(hourly["weathercode"][i], "Unknown"),
                 "humidity": hourly["relative_humidity_2m"][i],
-                "precipitation_chance": hourly["precipitation_probability"][i]
+                "precipitation_probability": hourly["precipitation_probability"][i]
             })
         
         current_date = datetime.now()
@@ -212,16 +212,12 @@ async def get_weather_data(city):
             day_date = (current_date + timedelta(days=i))
             daily_forecast.append({
                 "date": day_date.strftime('%Y-%m-%d'),
-                "day_name": day_date.strftime('%a, %b %d'),
-                "temperature": {
-                    "min": round(daily["temperature_2m_min"][i], 1),
-                    "max": round(daily["temperature_2m_max"][i], 1)
-                },
-                "condition": weather_code.get(daily["weathercode"][i], "Unknown"),
-                "sun": {
-                    "sunrise": daily["sunrise"][i].split("T")[1][:5],
-                    "sunset": daily["sunset"][i].split("T")[1][:5]
-                }
+                "day": day_date.strftime('%a, %b %d'),
+                "min_temp": round(daily["temperature_2m_min"][i], 1),
+                "max_temp": round(daily["temperature_2m_max"][i], 1),
+                "weather": weather_code.get(daily["weathercode"][i], "Unknown"),
+                "sunrise": daily["sunrise"][i].split("T")[1][:5],
+                "sunset": daily["sunset"][i].split("T")[1][:5]
             })
         
         pm25 = aqi["pm2_5"][0]
@@ -250,35 +246,27 @@ async def get_weather_data(city):
             "location": {
                 "city": city.capitalize(),
                 "country": get_country_name(country_code),
-                "country_code": country_code
-            },
-            "coordinates": {
-                "latitude": lat,
-                "longitude": lon
-            },
-            "current_weather": {
-                "timestamp": {
-                    "time": current_time,
-                    "date": current_date_str
-                },
-                "temperature": round(current["temperature_2m"], 1),
-                "feels_like": round(current["apparent_temperature"], 1),
-                "condition": weather_code.get(current["weathercode"], "Unknown"),
-                "condition_code": current["weathercode"],
-                "humidity": current["relative_humidity_2m"],
-                "wind": {
-                    "speed": round(current["wind_speed_10m"], 1),
-                    "direction": current["wind_direction_10m"]
-                },
-                "sun": {
-                    "sunrise": daily["sunrise"][0].split("T")[1][:5],
-                    "sunset": daily["sunset"][0].split("T")[1][:5]
+                "country_code": country_code,
+                "coordinates": {
+                    "latitude": lat,
+                    "longitude": lon
                 }
             },
-            "forecast": {
-                "hourly": hourly_forecast,
-                "daily": daily_forecast
+            "current": {
+                "time": current_time,
+                "date": current_date_str,
+                "temperature": round(current["temperature_2m"], 1),
+                "feels_like": round(current["apparent_temperature"], 1),
+                "humidity": current["relative_humidity_2m"],
+                "wind_speed": round(current["wind_speed_10m"], 1),
+                "wind_direction": current["wind_direction_10m"],
+                "weather": weather_code.get(current["weathercode"], "Unknown"),
+                "weather_code": current["weathercode"],
+                "sunrise": daily["sunrise"][0].split("T")[1][:5],
+                "sunset": daily["sunset"][0].split("T")[1][:5]
             },
+            "hourly_forecast": hourly_forecast,
+            "daily_forecast": daily_forecast,
             "air_quality": {
                 "level": aqi_level,
                 "fine_particles": round(aqi["pm2_5"][0], 2),
@@ -287,13 +275,17 @@ async def get_weather_data(city):
                 "nitrogen_dioxide": round(aqi["nitrogen_dioxide"][0], 2),
                 "ozone": round(aqi["ozone"][0], 2)
             },
-            "weather_maps": {
+            "maps": {
                 "temperature": f"https://openweathermap.org/weathermap?basemap=map&cities=true&layer=temperature&lat={lat}&lon={lon}&zoom=8",
                 "clouds": f"https://openweathermap.org/weathermap?basemap=map&cities=true&layer=clouds&lat={lat}&lon={lon}&zoom=8",
                 "precipitation": f"https://openweathermap.org/weathermap?basemap=map&cities=true&layer=precipitation&lat={lat}&lon={lon}&zoom=8",
                 "wind": f"https://openweathermap.org/weathermap?basemap=map&cities=true&layer=wind&lat={lat}&lon={lon}&zoom=8",
                 "pressure": f"https://openweathermap.org/weathermap?basemap=map&cities=true&layer=pressure&lat={lat}&lon={lon}&zoom=8"
-            }
+            },
+            "lat": lat,
+            "lon": lon,
+            "country_code": country_code,
+            "city": city.capitalize()
         }
 
 @router.get("")
@@ -344,16 +336,10 @@ async def get_weather(area: str = None):
             LOGGER.error(f"Failed to remove image: {str(e)}")
         
         if image_url:
-            weather_data["weather_image"] = {
-                "url": image_url,
-                "status": "available"
-            }
+            weather_data["image_url"] = image_url
         else:
-            weather_data["weather_image"] = {
-                "url": None,
-                "status": "unavailable",
-                "error": "Failed to upload image to hosting service"
-            }
+            weather_data["image_url"] = None
+            weather_data["image_error"] = "Failed to upload image to hosting service"
         
         weather_data["api_owner"] = "@ISmartCoder"
         weather_data["api_dev"] = "@abirxdhackz"
