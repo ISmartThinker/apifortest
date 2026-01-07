@@ -9,9 +9,27 @@ import pytz
 import pycountry
 import requests
 import tempfile
+import io
 from utils import LOGGER
 
 router = APIRouter(prefix="/wth")
+
+FONT_CACHE = {}
+
+def download_font(url, size):
+    cache_key = f"{url}_{size}"
+    if cache_key in FONT_CACHE:
+        return FONT_CACHE[cache_key]
+    
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            font = ImageFont.truetype(io.BytesIO(response.content), size)
+            FONT_CACHE[cache_key] = font
+            return font
+    except Exception as e:
+        LOGGER.error(f"Failed to download font from {url}: {str(e)}")
+    return ImageFont.load_default()
 
 def get_timezone_from_coordinates(lat, lon):
     from timezonefinder import TimezoneFinder
@@ -51,12 +69,16 @@ def create_weather_image(weather_data, output_path):
     img = Image.new("RGB", (img_width, img_height), color=background_color)
     draw = ImageDraw.Draw(img)
     
+    font_url_bold = "https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Bold.ttf"
+    font_url_regular = "https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Regular.ttf"
+    
     try:
-        font_bold_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 120)
-        font_bold = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 40)
-        font_regular = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 38)
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 36)
-    except Exception:
+        font_bold_large = download_font(font_url_bold, 120)
+        font_bold = download_font(font_url_bold, 40)
+        font_regular = download_font(font_url_regular, 38)
+        font_small = download_font(font_url_regular, 36)
+    except Exception as e:
+        LOGGER.error(f"Font loading failed: {str(e)}")
         font_bold_large = ImageFont.load_default()
         font_bold = ImageFont.load_default()
         font_regular = ImageFont.load_default()
