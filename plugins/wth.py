@@ -22,26 +22,21 @@ def download_font(url, size):
         return FONT_CACHE[cache_key]
     
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15)
         if response.status_code == 200:
             font = ImageFont.truetype(io.BytesIO(response.content), size)
             FONT_CACHE[cache_key] = font
+            LOGGER.info(f"Font cached successfully: {cache_key}")
             return font
+        else:
+            LOGGER.error(f"Font download failed with status {response.status_code}")
     except Exception as e:
         LOGGER.error(f"Failed to download font from {url}: {str(e)}")
+    
     return ImageFont.load_default()
 
 def get_timezone_from_coordinates(lat, lon):
-    from timezonefinder import TimezoneFinder
-    try:
-        tf = TimezoneFinder()
-        timezone_str = tf.timezone_at(lat=lat, lng=lon)
-        if timezone_str:
-            return pytz.timezone(timezone_str)
-        return pytz.timezone('UTC')
-    except Exception as e:
-        LOGGER.error(f"Timezone detection failed: {str(e)}")
-        return pytz.timezone('UTC')
+    return pytz.timezone('UTC')
 
 def get_country_name(country_code):
     try:
@@ -61,58 +56,91 @@ def create_weather_image(weather_data, output_path):
         LOGGER.error(f"Time formatting failed: {str(e)}")
         time_text = datetime.now().strftime("%I:%M %p")
     
-    img_width, img_height = 1200, 600
-    background_color = (30, 39, 50)
+    img_width, img_height = 1920, 1080
+    background_color = (15, 23, 42)
     white = (255, 255, 255)
-    light_gray = (200, 200, 200)
+    light_gray = (203, 213, 225)
+    accent_blue = (59, 130, 246)
     
     img = Image.new("RGB", (img_width, img_height), color=background_color)
     draw = ImageDraw.Draw(img)
     
-    font_url_bold = "https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Bold.ttf"
-    font_url_regular = "https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Regular.ttf"
+    font_url_bold = "https://github.com/google/fonts/raw/main/ofl/inter/static/Inter_18pt-Bold.ttf"
+    font_url_semibold = "https://github.com/google/fonts/raw/main/ofl/inter/static/Inter_18pt-SemiBold.ttf"
+    font_url_regular = "https://github.com/google/fonts/raw/main/ofl/inter/static/Inter_18pt-Regular.ttf"
+    font_url_medium = "https://github.com/google/fonts/raw/main/ofl/inter/static/Inter_18pt-Medium.ttf"
     
     try:
-        font_bold_large = download_font(font_url_bold, 120)
-        font_bold = download_font(font_url_bold, 40)
-        font_regular = download_font(font_url_regular, 38)
-        font_small = download_font(font_url_regular, 36)
+        font_temp_huge = download_font(font_url_bold, 180)
+        font_title_large = download_font(font_url_bold, 72)
+        font_subtitle = download_font(font_url_semibold, 48)
+        font_body = download_font(font_url_regular, 42)
+        font_small = download_font(font_url_medium, 38)
     except Exception as e:
         LOGGER.error(f"Font loading failed: {str(e)}")
-        font_bold_large = ImageFont.load_default()
-        font_bold = ImageFont.load_default()
-        font_regular = ImageFont.load_default()
+        font_temp_huge = ImageFont.load_default()
+        font_title_large = ImageFont.load_default()
+        font_subtitle = ImageFont.load_default()
+        font_body = ImageFont.load_default()
         font_small = ImageFont.load_default()
     
-    main_title = "Current Weather"
-    temp_text = f"{current['temperature']}°C"
+    header_y = 60
+    draw.text((80, header_y), "Current Weather", font=font_title_large, fill=white)
+    draw.text((img_width - 80, header_y), time_text, font=font_body, fill=light_gray, anchor="ra")
+    
+    draw.line([(80, header_y + 100), (img_width - 80, header_y + 100)], fill=accent_blue, width=4)
+    
+    temp_y = 280
+    temp_text = f"{current['temperature']}°"
+    draw.text((img_width // 2, temp_y), temp_text, font=font_temp_huge, fill=white, anchor="mm")
+    
+    condition_y = temp_y + 140
     condition_text = current["weather"]
-    realfeel_text = f"RealFeel® {current['feels_like']}°C"
+    draw.text((img_width // 2, condition_y), condition_text, font=font_subtitle, fill=light_gray, anchor="mm")
+    
+    realfeel_y = condition_y + 80
+    realfeel_text = f"Feels like {current['feels_like']}°C"
+    draw.text((img_width // 2, realfeel_y), realfeel_text, font=font_body, fill=light_gray, anchor="mm")
+    
+    info_y = 700
+    info_spacing = 280
+    
+    humidity_x = 300
+    draw.text((humidity_x, info_y), "Humidity", font=font_small, fill=light_gray, anchor="mm")
+    draw.text((humidity_x, info_y + 60), f"{current['humidity']}%", font=font_subtitle, fill=white, anchor="mm")
+    
+    wind_x = humidity_x + info_spacing
+    draw.text((wind_x, info_y), "Wind Speed", font=font_small, fill=light_gray, anchor="mm")
+    draw.text((wind_x, info_y + 60), f"{current['wind_speed']} km/h", font=font_subtitle, fill=white, anchor="mm")
+    
+    sunrise_x = wind_x + info_spacing
+    draw.text((sunrise_x, info_y), "Sunrise", font=font_small, fill=light_gray, anchor="mm")
+    draw.text((sunrise_x, info_y + 60), current['sunrise'], font=font_subtitle, fill=white, anchor="mm")
+    
+    sunset_x = sunrise_x + info_spacing
+    draw.text((sunset_x, info_y), "Sunset", font=font_small, fill=light_gray, anchor="mm")
+    draw.text((sunset_x, info_y + 60), current['sunset'], font=font_subtitle, fill=white, anchor="mm")
+    
     country_name = get_country_name(weather_data['country_code'])
     location_text = f"{weather_data['city']}, {country_name}"
+    draw.text((80, img_height - 80), location_text, font=font_body, fill=light_gray)
     
-    draw.text((1140, 30), time_text, font=font_regular, fill=light_gray, anchor="ra")
-    draw.text((40, 40), main_title, font=font_bold, fill=white)
+    coords_text = f"Lat: {weather_data['lat']:.2f}° | Lon: {weather_data['lon']:.2f}°"
+    draw.text((img_width - 80, img_height - 80), coords_text, font=font_small, fill=light_gray, anchor="ra")
     
-    icon_x, icon_y = 320, 230
-    for i in range(3):
-        y = icon_y + i * 15
-        draw.line([(icon_x, y), (icon_x + 60, y)], fill=light_gray, width=5)
-    
-    temp_x, temp_y = 500, 180
-    draw.text((temp_x, temp_y), temp_text, font=font_bold_large, fill=white)
-    draw.text((temp_x + 30, temp_y + 130), condition_text, font=font_regular, fill=light_gray)
-    draw.text((temp_x + 10, temp_y + 180), realfeel_text, font=font_small, fill=light_gray)
-    draw.text((40, 520), location_text, font=font_regular, fill=light_gray)
-    
-    img.save(output_path)
+    img.save(output_path, quality=95, optimize=True)
+    LOGGER.info(f"High-quality weather image saved: {output_path}")
     return output_path
 
 async def fetch_data(session, url):
     try:
-        async with session.get(url) as response:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
             if response.status == 200:
                 return await response.json()
+            else:
+                LOGGER.error(f"Fetch failed with status {response.status} for {url}")
+    except asyncio.TimeoutError:
+        LOGGER.error(f"Timeout error for {url}")
     except Exception as e:
         LOGGER.error(f"Fetch error for {url}: {str(e)}")
     return None
@@ -121,7 +149,7 @@ def upload_to_tmpfiles(file_path):
     try:
         with open(file_path, 'rb') as f:
             files = {'file': f}
-            response = requests.post('https://tmpfiles.org/api/v1/upload', files=files)
+            response = requests.post('https://tmpfiles.org/api/v1/upload', files=files, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -130,7 +158,7 @@ def upload_to_tmpfiles(file_path):
                     url = url.replace('tmpfiles.org/', 'tmpfiles.org/dl/')
                     LOGGER.info(f"Image uploaded successfully: {url}")
                     return url
-        LOGGER.error(f"Upload failed: {response.text}")
+            LOGGER.error(f"Upload failed with status {response.status_code}: {response.text}")
     except Exception as e:
         LOGGER.error(f"Upload to tmpfiles failed: {str(e)}")
     return None
@@ -183,13 +211,13 @@ async def get_weather_data(city):
         aqi = aqi_data["hourly"]
         
         weather_code = {
-            0: "Clear", 1: "Scattered Clouds", 2: "Scattered Clouds", 3: "Overcast Clouds",
-            45: "Fog", 48: "Haze", 51: "Light Drizzle", 53: "Drizzle",
-            55: "Heavy Drizzle", 61: "Light Rain", 63: "Moderate Rain", 65: "Heavy Rain",
-            66: "Freezing Rain", 67: "Heavy Freezing Rain", 71: "Light Snow",
-            73: "Snow", 75: "Heavy Snow", 77: "Snow Grains", 80: "Showers",
-            81: "Heavy Showers", 82: "Violent Showers", 95: "Thunderstorm",
-            96: "Thunderstorm", 99: "Heavy Thunderstorm"
+            0: "Clear Sky", 1: "Mainly Clear", 2: "Partly Cloudy", 3: "Overcast",
+            45: "Foggy", 48: "Depositing Rime Fog", 51: "Light Drizzle", 53: "Moderate Drizzle",
+            55: "Dense Drizzle", 61: "Slight Rain", 63: "Moderate Rain", 65: "Heavy Rain",
+            66: "Light Freezing Rain", 67: "Heavy Freezing Rain", 71: "Slight Snow Fall",
+            73: "Moderate Snow Fall", 75: "Heavy Snow Fall", 77: "Snow Grains", 80: "Slight Rain Showers",
+            81: "Moderate Rain Showers", 82: "Violent Rain Showers", 95: "Thunderstorm",
+            96: "Thunderstorm with Slight Hail", 99: "Thunderstorm with Heavy Hail"
         }
         
         hourly_forecast = []
@@ -269,8 +297,8 @@ async def get_weather_data(city):
             "daily_forecast": daily_forecast,
             "air_quality": {
                 "level": aqi_level,
-                "fine_particles": round(aqi["pm2_5"][0], 2),
-                "coarse_particles": round(aqi["pm10"][0], 2),
+                "pm2_5": round(aqi["pm2_5"][0], 2),
+                "pm10": round(aqi["pm10"][0], 2),
                 "carbon_monoxide": round(aqi["carbon_monoxide"][0], 2),
                 "nitrogen_dioxide": round(aqi["nitrogen_dioxide"][0], 2),
                 "ozone": round(aqi["ozone"][0], 2)
@@ -297,9 +325,7 @@ async def get_weather(area: str = None):
                 status_code=400,
                 content={
                     "status": "error",
-                    "message": "Missing 'area' parameter. Usage: /wth?area=London",
-                    "api_owner": "@ISmartCoder",
-                    "api_dev": "@abirxdhackz"
+                    "message": "Missing 'area' parameter. Usage: /wth?area=London"
                 }
             )
         
@@ -313,9 +339,7 @@ async def get_weather(area: str = None):
                 status_code=404,
                 content={
                     "status": "error",
-                    "message": f"Weather data unavailable for '{area}'. Please check the city name.",
-                    "api_owner": "@ISmartCoder",
-                    "api_dev": "@abirxdhackz"
+                    "message": f"Weather data unavailable for '{area}'. Please check the city name."
                 }
             )
         
@@ -323,7 +347,7 @@ async def get_weather(area: str = None):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         image_path = os.path.join(temp_dir, f"weather_{area}_{timestamp}.png")
         
-        LOGGER.info(f"Generating weather image at: {image_path}")
+        LOGGER.info(f"Generating high-quality weather image at: {image_path}")
         create_weather_image(weather_data, image_path)
         
         LOGGER.info("Uploading image to tmpfiles.org")
@@ -341,9 +365,6 @@ async def get_weather(area: str = None):
             weather_data["image_url"] = None
             weather_data["image_error"] = "Failed to upload image to hosting service"
         
-        weather_data["api_owner"] = "@ISmartCoder"
-        weather_data["api_dev"] = "@abirxdhackz"
-        
         LOGGER.info(f"Successfully processed weather request for {area}")
         return JSONResponse(content=weather_data)
         
@@ -353,20 +374,16 @@ async def get_weather(area: str = None):
             status_code=400,
             content={
                 "status": "error",
-                "message": str(e),
-                "api_owner": "@ISmartCoder",
-                "api_dev": "@abirxdhackz"
+                "message": str(e)
             }
         )
     except Exception as e:
-        LOGGER.error(f"Error processing weather request: {str(e)}")
+        LOGGER.error(f"Error processing weather request: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
                 "status": "error",
                 "message": "Internal server error. Please try again later.",
-                "error_details": str(e),
-                "api_owner": "@ISmartCoder",
-                "api_dev": "@abirxdhackz"
+                "error_details": str(e)
             }
         )
