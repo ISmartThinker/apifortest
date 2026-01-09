@@ -11,6 +11,7 @@ brotli
 zstandard
 smartbindb
 googletrans
+lxml
 beautifulsoup4
 cloudscraper
 pillow
