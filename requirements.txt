@@ -8,6 +8,7 @@ uvicorn
 pytz
 smartfaker
 brotli
+aiofiles
 zstandard
 smartbindb
 googletrans
