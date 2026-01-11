@@ -8,7 +8,6 @@ from pathlib import Path
 import time
 import uuid
 import tempfile
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
 from utils import LOGGER
@@ -102,30 +101,26 @@ async def bypass_cloudflare(url):
     
     return None
 
-async def cleanup_expired_files():
-    while True:
-        try:
-            await asyncio.sleep(30)
-            now = time.time()
-            dead_keys = []
+def cleanup_expired_files_sync():
+    try:
+        now = time.time()
+        dead_keys = []
+        
+        for fid, data in list(STORE.items()):
+            if now > data["exp"]:
+                try:
+                    if os.path.exists(data["path"]):
+                        os.remove(data["path"])
+                        LOGGER.info(f"Deleted expired screenshot: {os.path.basename(data['path'])}")
+                except Exception as e:
+                    LOGGER.error(f"Error deleting file: {str(e)}")
+                dead_keys.append(fid)
+        
+        for fid in dead_keys:
+            STORE.pop(fid, None)
             
-            for fid, data in STORE.items():
-                if now > data["exp"]:
-                    try:
-                        if os.path.exists(data["path"]):
-                            os.remove(data["path"])
-                            LOGGER.info(f"Deleted expired screenshot: {os.path.basename(data['path'])}")
-                    except Exception as e:
-                        LOGGER.error(f"Error deleting file: {str(e)}")
-                    dead_keys.append(fid)
-            
-            for fid in dead_keys:
-                STORE.pop(fid, None)
-                
-        except Exception as e:
-            LOGGER.error(f"Cleanup error: {str(e)}")
-
-asyncio.create_task(cleanup_expired_files())
+    except Exception as e:
+        LOGGER.error(f"Cleanup error: {str(e)}")
 
 @router.get("/shot")
 async def screenshot_endpoint(url: str, quality: str = "hd", bypass: bool = False):
@@ -280,6 +275,8 @@ async def screenshot_endpoint(url: str, quality: str = "hd", bypass: bool = Fals
 
 @router.get("/file/{fid}")
 async def get_file(fid: str):
+    cleanup_expired_files_sync()
+    
     if fid not in STORE:
         raise HTTPException(status_code=404, detail="File not found")
     
