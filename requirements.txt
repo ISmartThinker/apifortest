@@ -18,6 +18,7 @@ cloudscraper
 pillow
 requests
 aiohttp<3.13
+gtts
 pycountry
 pydantic<2.0
 python-dateutil
