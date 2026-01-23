@@ -6,9 +6,9 @@ import aiohttp
 from utils import LOGGER
 
 router = APIRouter(prefix="/binance")
-BASE_URL_ALL = "https://api.binance.com/api/v3/ticker/24hr"
-BASE_URL_SYMBOL = "https://api.binance.com/api/v3/ticker/24hr?symbol={token}USDT"
-BASE_URL_PRICE = "https://api.binance.com/api/v3/ticker/price?symbol={symbol}"
+BASE_URL_ALL = "https://api4.binance.com/api/v3/ticker/24hr"
+BASE_URL_SYMBOL = "https://api4.binance.com/api/v3/ticker/24hr?symbol={token}USDT"
+BASE_URL_PRICE = "https://api4.binance.com/api/v3/ticker/price?symbol={symbol}"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
